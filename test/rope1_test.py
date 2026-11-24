@@ -3,6 +3,11 @@ import math
 G = 9.8
 L = 1.0
 
+def acc(x, y):
+    ax = 0.0
+    ay = G
+    return ax, ay
+
 def energy(x, y, vx, vy):
     return 0.5 * (vx*vx + vy*vy) - G * y
 
@@ -18,8 +23,7 @@ def constrain(x, y, vx, vy):
     return x, y, vx, vy
 
 def euler_step(x, y, vx, vy, dt):
-    ax = 0.0
-    ay = G
+    ax, ay = acc(x, y)
     x_new = x + vx*dt
     y_new = y + vy*dt
     vx_new = vx + ax*dt
@@ -27,12 +31,12 @@ def euler_step(x, y, vx, vy, dt):
     return constrain(x_new, y_new, vx_new, vy_new)
 
 def verlet_step(x, y, vx, vy, dt):
-    ax = 0.0
-    ay = G
+    ax, ay = acc(x, y)
     x_new = x + vx*dt + 0.5*ax*dt*dt
     y_new = y + vy*dt + 0.5*ay*dt*dt
-    vx_new = vx + ax*dt
-    vy_new = vy + ay*dt
+    ax_new, ay_new = acc(x_new, y_new)
+    vx_new = vx + 0.5*(ax + ax_new)*dt
+    vy_new = vy + 0.5*(ay + ay_new)*dt
     return constrain(x_new, y_new, vx_new, vy_new)
 
 def run(step_func, dt, steps):
