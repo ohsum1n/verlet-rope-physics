@@ -1,40 +1,35 @@
 import math
 import pygame
-from physics import make_rope, euler_step, verlet_step, rope_step, stretch
+from physics import make_rope, euler_step, verlet_step, rope_step_sub, stretch, find_best
 
-WIDTH = 800
-HEIGHT = 600
-ANCHOR_X = 400
-ANCHOR_Y = 80
-SCALE = 200
-N = 30
-SEG = 2.0 / (N - 1)
-DT = 1 / 60
-GRAB_RADIUS = 30
-MAX_STRETCH = 30
+width = 800
+height = 600
+anchor_x = 400
+anchor_y = 80
+scale = 200
+length = 2.0
+dt = 1 / 60
+grab_radius = 30
+max_stretch = 30
+target = 5
 
 def to_screen(pt):
-    sx = ANCHOR_X + pt[0]*SCALE
-    sy = ANCHOR_Y + pt[1]*SCALE
-    return int(sx), int(sy)
+    return int(anchor_x + pt[0] * scale), int(anchor_y + pt[1] * scale)
 
 def to_world(sx, sy):
-    x = (sx - ANCHOR_X) / SCALE
-    y = (sy - ANCHOR_Y) / SCALE
-    return x, y
+    return (sx - anchor_x) / scale, (sy - anchor_y) / scale
 
 def grab_point(mx, my):
     x, y = to_world(mx, my)
     d = math.sqrt(x*x + y*y)
-    reach = SEG * (N - 1)
-    if d > reach:
-        x = x / d * reach
-        y = y / d * reach
+    if d > length:
+        x = x * length / d
+        y = y * length / d
     return [x, y]
 
 def is_near_end(p, mx, my):
-    ex, ey = to_screen(p[N-1])
-    return (mx - ex)**2 + (my - ey)**2 < GRAB_RADIUS * GRAB_RADIUS
+    ex, ey = to_screen(p[-1])
+    return (ex - mx) ** 2 + (ey - my) ** 2 < grab_radius ** 2
 
 def method_name(step_func):
     if step_func == euler_step:
@@ -42,62 +37,80 @@ def method_name(step_func):
     return "Verlet"
 
 def draw(screen, p):
-    screen.fill((20, 24, 32))
-    for i in range(N - 1):
-        pygame.draw.line(screen, (120, 170, 255), to_screen(p[i]), to_screen(p[i+1]), 3)
-    for i in range(N):
-        pygame.draw.circle(screen, (230, 230, 240), to_screen(p[i]), 5)
-    pygame.draw.circle(screen, (120, 220, 160), to_screen(p[N-1]), 11)
+    points = [to_screen(q) for q in p]
+    pygame.draw.lines(screen, (120, 170, 255), False, points, 3)
+    pygame.draw.circle(screen, (110, 220, 130), points[-1], 8)
 
-def draw_info(screen, font, p, iters, step_func):
-    s = stretch(p, SEG)
-    w = int(200 * min(s, MAX_STRETCH) / MAX_STRETCH)
-    text = font.render(method_name(step_func) + "   iters " + str(iters), True, (220, 225, 235))
-    screen.blit(text, (16, 14))
+def draw_info(screen, font, p, seg, n, iters, sub, step_func, message):
+    s = stretch(p, seg)
+    w = int(200 * min(s, max_stretch) / max_stretch)
+    text = method_name(step_func) + "   points " + str(n) + "   iters " + str(iters) + "   sub " + str(sub)
+    screen.blit(font.render(text, True, (220, 225, 235)), (16, 14))
     pygame.draw.rect(screen, (50, 58, 74), (16, 44, 200, 14))
     pygame.draw.rect(screen, (230, 120, 100), (16, 44, w, 14))
-    text = font.render(format(s, ".1f") + "%", True, (220, 225, 235))
-    screen.blit(text, (226, 42))
+    screen.blit(font.render(format(s, ".1f") + "%", True, (220, 225, 235)), (226, 42))
+    screen.blit(font.render(message, True, (160, 200, 170)), (16, 70))
 
-def run(step_func, iters):
+def run(step_func, n, iters, sub):
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    screen = pygame.display.set_mode((width, height))
+    font = pygame.font.SysFont(None, 26)
     clock = pygame.time.Clock()
-    font = pygame.font.SysFont(None, 24)
-    p, v = make_rope(N, SEG)
+    seg = length / (n - 1)
+    p, v = make_rope(n, seg)
     grabbing = False
+    message = "T: find best iters/sub"
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_e:
-                    step_func = euler_step
-                elif event.key == pygame.K_v:
-                    step_func = verlet_step
-                elif event.key == pygame.K_UP:
-                    iters = min(iters + 1, 50)
-                elif event.key == pygame.K_DOWN:
-                    iters = max(iters - 1, 1)
-                elif event.key == pygame.K_r:
-                    p, v = make_rope(N, SEG)
-                    grabbing = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                mx, my = event.pos
-                if is_near_end(p, mx, my):
+                if is_near_end(p, event.pos[0], event.pos[1]):
                     grabbing = True
             elif event.type == pygame.MOUSEBUTTONUP:
                 grabbing = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    iters = min(iters + 1, 50)
+                elif event.key == pygame.K_DOWN:
+                    iters = max(iters - 1, 1)
+                elif event.key == pygame.K_RIGHT:
+                    sub = min(sub + 1, 20)
+                elif event.key == pygame.K_LEFT:
+                    sub = max(sub - 1, 1)
+                elif event.key == pygame.K_e:
+                    step_func = euler_step
+                elif event.key == pygame.K_v:
+                    step_func = verlet_step
+                elif event.key == pygame.K_EQUALS:
+                    n = min(n + 5, 100)
+                    seg = length / (n - 1)
+                    p, v = make_rope(n, seg)
+                elif event.key == pygame.K_MINUS:
+                    n = max(n - 5, 5)
+                    seg = length / (n - 1)
+                    p, v = make_rope(n, seg)
+                elif event.key == pygame.K_r:
+                    p, v = make_rope(n, seg)
+                elif event.key == pygame.K_t:
+                    best = find_best(n, length, dt, target)
+                    if best is None:
+                        message = "no combo reaches " + str(target) + "%"
+                    else:
+                        iters = best[0]
+                        sub = best[1]
+                        message = "best: iters " + str(iters) + " sub " + str(sub) + "  (" + format(best[2], ".1f") + "%, " + format(best[3], ".2f") + " ms)"
         grab = None
         if grabbing:
             mx, my = pygame.mouse.get_pos()
             grab = grab_point(mx, my)
-        rope_step(p, v, DT, SEG, iters, step_func, grab)
+        rope_step_sub(p, v, dt, seg, iters, step_func, grab, sub)
+        screen.fill((24, 28, 38))
         draw(screen, p)
-        draw_info(screen, font, p, iters, step_func)
+        draw_info(screen, font, p, seg, n, iters, sub, step_func, message)
         pygame.display.flip()
         clock.tick(60)
     pygame.quit()
 
-run(verlet_step, 3)
+run(verlet_step, 30, 3, 1)
