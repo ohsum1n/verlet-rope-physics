@@ -84,16 +84,20 @@ def run(step_func, n, iters, sub):
                 elif event.key == pygame.K_v:
                     step_func = verlet_step
                 elif event.key == pygame.K_EQUALS:
-                    n = min(n + 5, 100)
+                    n = min(n + 1, 50)
                     seg = length / (n - 1)
                     p, v = make_rope(n, seg)
                 elif event.key == pygame.K_MINUS:
-                    n = max(n - 5, 5)
+                    n = max(n - 1, 2)
                     seg = length / (n - 1)
                     p, v = make_rope(n, seg)
                 elif event.key == pygame.K_r:
                     p, v = make_rope(n, seg)
                 elif event.key == pygame.K_t:
+                    screen.fill((24, 28, 38))
+                    draw(screen, p)
+                    draw_info(screen, font, p, seg, n, iters, sub, step_func, "searching...")
+                    pygame.display.flip()
                     best = find_best(n, length, dt, target)
                     if best is None:
                         message = "no combo reaches " + str(target) + "%"

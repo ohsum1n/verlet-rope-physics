@@ -83,12 +83,6 @@ def rope_step_sub(p, v, dt, seg, iters, step_func, grab, sub):
             goal = [sx + (grab[0] - sx) * (k + 1) / sub, sy + (grab[1] - sy) * (k + 1) / sub]
         rope_step(p, v, dt / sub, seg, iters, step_func, goal)
 
-def energy(p, v):
-    e = 0.0
-    for i in range(1, len(p)):
-        e += 0.5 * (v[i][0]*v[i][0] + v[i][1]*v[i][1]) - g * p[i][1]
-    return e
-
 def stretch(p, seg):
     total = 0.0
     for i in range(len(p) - 1):
@@ -97,11 +91,11 @@ def stretch(p, seg):
         total += math.sqrt(dx*dx + dy*dy)
     return (total / (seg * (len(p) - 1)) - 1) * 100
 
-def find_best(n, length, dt, target):
+def find_best(n, length, dt, target, max_iters=20, max_sub=20):
     seg = length / (n - 1)
     best = None
-    for iters in range(1, 11):
-        for sub in range(1, 11):
+    for sub in range(max_sub, 0, -1):
+        for iters in range(1, max_iters + 1):
             p, v = make_rope(n, seg)
             worst = 0.0
             total = 0.0
@@ -119,16 +113,19 @@ def find_best(n, length, dt, target):
                 total += time.perf_counter() - start
                 worst = max(worst, stretch(p, seg))
             ms = total / 180 * 1000
-            if worst <= target and (best is None or ms < best[3]):
+            if best is not None and ms >= best[3]:
+                break
+            if worst <= target:
                 best = (iters, sub, worst, ms)
+                break
     return best
 
 if __name__ == "__main__":
     seg = 2.0 / 29
-    for iters, sub in [(20, 1), (10, 2), (5, 4), (2, 10), (1, 20)]:
+    for iters, sub in [(1, 1), (2, 1), (3, 1), (5, 1), (10, 1), (20, 1), (30, 1), (50, 1), (10, 2), (5, 4), (2, 10), (1, 2), (1, 3), (1, 5), (1, 10), (1, 20)]:
         p, v = make_rope(30, seg)
         for i in range(300):
             rope_step_sub(p, v, 1/60, seg, iters, verlet_step, None, sub)
         print(iters, sub, round(stretch(p, seg), 2))
-    for n in [10, 30, 60, 100]:
+    for n in range(2, 51):
         print(n, find_best(n, 2.0, 1/60, 5))

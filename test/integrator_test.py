@@ -26,9 +26,14 @@ def run(step_func, dt, steps):
         y, v = step_func(y, v, dt)
         print(i, y, v, energy(y, v))
 
-run(euler_step, 0.5, 3)
-run(verlet_step, 0.5, 3)
-run(euler_step, 0.1, 3)
-run(verlet_step, 0.1, 3)
-run(euler_step, 0.01, 3)
-run(verlet_step, 0.01, 3)
+y1 = 1.0
+v1 = 0.0
+y2 = 1.0
+v2 = 0.0
+dt = 1 / 60
+print(0, energy(y1, v1), energy(y2, v2))
+for i in range(1, 10801):
+    y1, v1 = euler_step(y1, v1, dt)
+    y2, v2 = verlet_step(y2, v2, dt)
+    if i % 600 == 0:
+        print(i, energy(y1, v1), energy(y2, v2))
